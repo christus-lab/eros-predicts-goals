@@ -48,7 +48,7 @@ Tu reponds STRICTEMENT en JSON valide (aucun texte hors JSON, aucun bloc markdow
   "bankroll_advice": string,
   "key_factors": [string]
 }
-"markets" doit couvrir au moins 12 marches differents. "best_bets" contient 1 a 4 selections seulement (les plus rentables/fiables), ou un tableau vide si aucun pari n'est justifie.`;
+"markets" doit couvrir au moins 26 marches differents, avec OBLIGATOIREMENT au moins 8 marches de mi-temps (HT) et au moins 12 marches de temps plein (FT), plus les marches annexes (corners, cartons, fautes, touches, hors-jeu, tirs). "best_bets" contient 1 a 4 selections seulement (les plus rentables/fiables), ou un tableau vide si aucun pari n'est justifie. "score_predictions" doit toujours contenir un score HT et un score FT coherents entre eux.`;
 
 function extractJson(text: string): unknown {
   const cleaned = text
