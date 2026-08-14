@@ -81,6 +81,7 @@ function Stat({ label, value, icon }: { label: string; value: string; icon: Reac
 
 function Index() {
   const [competition, setCompetition] = useState("");
+  const [compSelect, setCompSelect] = useState("");
   const [homeTeam, setHomeTeam] = useState("");
   const [awayTeam, setAwayTeam] = useState("");
   const [details, setDetails] = useState("");
