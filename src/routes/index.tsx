@@ -17,9 +17,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { MarketCard } from "@/components/eros/MarketCard";
+import { COMPETITION_GROUPS, OTHER_COMPETITION } from "@/lib/competitions";
 import { listPredictions, predictMatch, submitOutcome, type ErosAnalysis } from "@/lib/eros.functions";
 
 import heroImage from "@/assets/eros-hero.jpg";
