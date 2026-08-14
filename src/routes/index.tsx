@@ -17,9 +17,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { MarketCard } from "@/components/eros/MarketCard";
+import { COMPETITION_GROUPS, OTHER_COMPETITION } from "@/lib/competitions";
 import { listPredictions, predictMatch, submitOutcome, type ErosAnalysis } from "@/lib/eros.functions";
 
 import heroImage from "@/assets/eros-hero.jpg";
@@ -71,6 +81,7 @@ function Stat({ label, value, icon }: { label: string; value: string; icon: Reac
 
 function Index() {
   const [competition, setCompetition] = useState("");
+  const [compSelect, setCompSelect] = useState("");
   const [homeTeam, setHomeTeam] = useState("");
   const [awayTeam, setAwayTeam] = useState("");
   const [details, setDetails] = useState("");
@@ -189,13 +200,43 @@ function Index() {
                 <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                   Championnat / Compétition
                 </label>
-                <Input
-                  value={competition}
-                  onChange={(e) => setCompetition(e.target.value)}
-                  placeholder="Ex : Bundesliga, Copa del Rey, CAN, Ligue 1, amical international..."
-                  className="mt-2 h-11 border-border bg-surface-2"
-                />
+                <Select
+                  value={compSelect}
+                  onValueChange={(v) => {
+                    setCompSelect(v);
+                    setCompetition(v === OTHER_COMPETITION ? "" : v);
+                  }}
+                >
+                  <SelectTrigger className="mt-2 h-11 border-border bg-surface-2">
+                    <SelectValue placeholder="Choisissez une compétition..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-80">
+                    {COMPETITION_GROUPS.map((group) => (
+                      <SelectGroup key={group.label}>
+                        <SelectLabel>{group.label}</SelectLabel>
+                        {group.items.map((item) => (
+                          <SelectItem key={item} value={item}>
+                            {item}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                    <SelectGroup>
+                      <SelectLabel>Non listée</SelectLabel>
+                      <SelectItem value={OTHER_COMPETITION}>Autre compétition (saisir)</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                {compSelect === OTHER_COMPETITION && (
+                  <Input
+                    value={competition}
+                    onChange={(e) => setCompetition(e.target.value)}
+                    placeholder="Ex : Coupe du Bénin, tournoi régional, championnat U23..."
+                    className="mt-2 h-11 border-border bg-surface-2"
+                  />
+                )}
               </div>
+
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
