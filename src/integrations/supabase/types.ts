@@ -14,7 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      learning_notes: {
+        Row: {
+          created_at: string
+          id: string
+          lesson: string
+          topic: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lesson: string
+          topic: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lesson?: string
+          topic?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+      predictions: {
+        Row: {
+          actual_result: string | null
+          analysis: Json
+          away_team: string
+          competition: string
+          confidence: number | null
+          created_at: string
+          feedback: string | null
+          home_team: string
+          id: string
+          raw_input: string
+          updated_at: string
+          was_correct: boolean | null
+        }
+        Insert: {
+          actual_result?: string | null
+          analysis: Json
+          away_team: string
+          competition: string
+          confidence?: number | null
+          created_at?: string
+          feedback?: string | null
+          home_team: string
+          id?: string
+          raw_input: string
+          updated_at?: string
+          was_correct?: boolean | null
+        }
+        Update: {
+          actual_result?: string | null
+          analysis?: Json
+          away_team?: string
+          competition?: string
+          confidence?: number | null
+          created_at?: string
+          feedback?: string | null
+          home_team?: string
+          id?: string
+          raw_input?: string
+          updated_at?: string
+          was_correct?: boolean | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
