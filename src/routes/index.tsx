@@ -189,13 +189,43 @@ function Index() {
                 <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                   Championnat / Compétition
                 </label>
-                <Input
-                  value={competition}
-                  onChange={(e) => setCompetition(e.target.value)}
-                  placeholder="Ex : Bundesliga, Copa del Rey, CAN, Ligue 1, amical international..."
-                  className="mt-2 h-11 border-border bg-surface-2"
-                />
+                <Select
+                  value={compSelect}
+                  onValueChange={(v) => {
+                    setCompSelect(v);
+                    setCompetition(v === OTHER_COMPETITION ? "" : v);
+                  }}
+                >
+                  <SelectTrigger className="mt-2 h-11 border-border bg-surface-2">
+                    <SelectValue placeholder="Choisissez une compétition..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-80">
+                    {COMPETITION_GROUPS.map((group) => (
+                      <SelectGroup key={group.label}>
+                        <SelectLabel>{group.label}</SelectLabel>
+                        {group.items.map((item) => (
+                          <SelectItem key={item} value={item}>
+                            {item}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                    <SelectGroup>
+                      <SelectLabel>Non listée</SelectLabel>
+                      <SelectItem value={OTHER_COMPETITION}>Autre compétition (saisir)</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                {compSelect === OTHER_COMPETITION && (
+                  <Input
+                    value={competition}
+                    onChange={(e) => setCompetition(e.target.value)}
+                    placeholder="Ex : Coupe du Bénin, tournoi régional, championnat U23..."
+                    className="mt-2 h-11 border-border bg-surface-2"
+                  />
+                )}
               </div>
+
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
