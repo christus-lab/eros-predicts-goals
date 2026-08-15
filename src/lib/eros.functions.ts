@@ -274,3 +274,110 @@ export const submitOutcome = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+export const getPrediction = createServerFn({ method: "GET" })
+  .inputValidator((input: { id: string }) => input)
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row } = await supabaseAdmin
+      .from("predictions")
+      .select(
+        "id, competition, home_team, away_team, confidence, actual_result, was_correct, created_at, analysis, raw_input",
+      )
+      .eq("id", data.id)
+      .single();
+    const { data: results } = await supabaseAdmin
+      .from("market_results")
+      .select("id, market, pick, actual_result, was_correct")
+      .eq("prediction_id", data.id);
+    return { prediction: row ?? null, results: results ?? [] };
+  });
+
+export const listMarketResults = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("market_results")
+    .select("prediction_id, was_correct")
+    .limit(2000);
+  return data ?? [];
+});
+
+export const saveMarketResult = createServerFn({ method: "POST" })
+  .inputValidator(
+    (input: {
+      predictionId: string;
+      market: string;
+      pick: string;
+      actualResult: string;
+      wasCorrect: boolean;
+    }) => input,
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    await supabaseAdmin
+      .from("market_results")
+      .upsert(
+        {
+          prediction_id: data.predictionId,
+          market: data.market,
+          pick: data.pick,
+          actual_result: data.actualResult || null,
+          was_correct: data.wasCorrect,
+        },
+        { onConflict: "prediction_id,market" },
+      );
+
+    const apiKey = process.env["LOVABLE_API_KEY"];
+    const { data: row } = await supabaseAdmin
+      .from("predictions")
+      .select("competition, home_team, away_team")
+      .eq("id", data.predictionId)
+      .single();
+
+    if (apiKey && row) {
+      try {
+        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Lovable-API-Key": apiKey,
+            "X-Lovable-AIG-SDK": "fetch",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-3.6-flash",
+            messages: [
+              {
+                role: "system",
+                content:
+                  'Tu es le module d apprentissage d Eros-V1. A partir d un marche predit et de son resultat reel, produis UNE lecon actionnable pour mieux calibrer ce type de marche et proteger le bankroll. Reponds en JSON strict: {"topic": string court, "lesson": string (1-2 phrases, francais), "weight": number 1-5}.',
+              },
+              {
+                role: "user",
+                content: `Competition: ${row.competition}\nMatch: ${row.home_team} vs ${row.away_team}\nMarche: ${data.market}\nPronostic: ${data.pick}\nResultat reel: ${data.actualResult || "non precise"}\nPronostic ${data.wasCorrect ? "reussi" : "rate"}`,
+              },
+            ],
+          }),
+        });
+        if (res.ok) {
+          const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+          const lesson = extractJson(json.choices?.[0]?.message?.content ?? "") as {
+            topic: string;
+            lesson: string;
+            weight: number;
+          };
+          if (lesson?.lesson) {
+            await supabaseAdmin.from("learning_notes").insert({
+              topic: String(lesson.topic ?? "marche").slice(0, 80),
+              lesson: String(lesson.lesson).slice(0, 800),
+              weight: Math.min(5, Math.max(1, Math.round(Number(lesson.weight) || 1))),
+            });
+          }
+        }
+      } catch {
+        /* l apprentissage ne bloque jamais l enregistrement */
+      }
+    }
+
+    return { ok: true };
+  });
