@@ -5,21 +5,30 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Eros-V1 design system — "stadium at night".
- * Dark-first, emerald pitch light + gold value accents.
- * All colors are semantic tokens in oklch. Never hardcode colors in components.
+ * Eros-V1 design system — "slate terminal".
+ * Fond ardoise très sombre, accent cyan, typographie compacte (Outfit / Figtree).
+ * Toutes les couleurs sont des tokens sémantiques. Ne jamais coder une couleur en dur.
  */
 
 @theme inline {
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
+
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.375rem;
+  --text-3xl: 1.75rem;
+  --text-4xl: 2.125rem;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-xl: calc(var(--radius) + 2px);
+  --radius-2xl: calc(var(--radius) + 4px);
+  --radius-3xl: calc(var(--radius) + 8px);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -41,8 +50,6 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
-  --color-gold: var(--gold);
-  --color-gold-foreground: var(--gold-foreground);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-border: var(--border);
@@ -65,70 +72,58 @@
 }
 
 :root {
-  --radius: 0.75rem;
+  --radius: 0.625rem;
 
-  --background: oklch(0.16 0.021 165);
-  --foreground: oklch(0.965 0.008 150);
+  --background: oklch(0.168 0.017 250);
+  --foreground: oklch(0.925 0.011 250);
 
-  --surface: oklch(0.213 0.026 168);
-  --surface-2: oklch(0.253 0.031 168);
+  --surface: oklch(0.212 0.019 250);
+  --surface-2: oklch(0.252 0.021 250);
 
-  --card: oklch(0.205 0.025 168);
-  --card-foreground: oklch(0.965 0.008 150);
-  --popover: oklch(0.213 0.026 168);
-  --popover-foreground: oklch(0.965 0.008 150);
+  --card: oklch(0.212 0.019 250);
+  --card-foreground: oklch(0.925 0.011 250);
+  --popover: oklch(0.225 0.02 250);
+  --popover-foreground: oklch(0.925 0.011 250);
 
-  --primary: oklch(0.755 0.174 156);
-  --primary-foreground: oklch(0.17 0.03 165);
+  --primary: oklch(0.83 0.104 220);
+  --primary-foreground: oklch(0.18 0.02 250);
 
-  --secondary: oklch(0.27 0.032 168);
-  --secondary-foreground: oklch(0.94 0.012 150);
+  --secondary: oklch(0.262 0.021 250);
+  --secondary-foreground: oklch(0.9 0.012 250);
 
-  --muted: oklch(0.253 0.028 168);
-  --muted-foreground: oklch(0.706 0.026 160);
+  --muted: oklch(0.252 0.02 250);
+  --muted-foreground: oklch(0.68 0.018 250);
 
-  --accent: oklch(0.3 0.045 168);
-  --accent-foreground: oklch(0.965 0.008 150);
+  --accent: oklch(0.29 0.024 250);
+  --accent-foreground: oklch(0.93 0.011 250);
 
-  --gold: oklch(0.83 0.152 87);
-  --gold-foreground: oklch(0.2 0.04 80);
+  --success: oklch(0.76 0.13 165);
+  --success-foreground: oklch(0.18 0.02 250);
+  --warning: oklch(0.82 0.12 80);
+  --warning-foreground: oklch(0.2 0.02 250);
+  --destructive: oklch(0.65 0.17 22);
+  --destructive-foreground: oklch(0.97 0.01 20);
 
-  --success: oklch(0.755 0.174 156);
-  --success-foreground: oklch(0.17 0.03 165);
-  --warning: oklch(0.8 0.15 72);
-  --warning-foreground: oklch(0.2 0.04 80);
-  --destructive: oklch(0.62 0.212 22);
-  --destructive-foreground: oklch(0.98 0.01 20);
+  --border: oklch(0.295 0.022 250);
+  --input: oklch(0.285 0.022 250);
+  --ring: oklch(0.83 0.104 220);
 
-  --border: oklch(0.31 0.032 168);
-  --input: oklch(0.29 0.03 168);
-  --ring: oklch(0.755 0.174 156);
+  --chart-1: oklch(0.83 0.104 220);
+  --chart-2: oklch(0.76 0.13 165);
+  --chart-3: oklch(0.82 0.12 80);
+  --chart-4: oklch(0.7 0.13 290);
+  --chart-5: oklch(0.65 0.17 22);
 
-  --chart-1: oklch(0.755 0.174 156);
-  --chart-2: oklch(0.83 0.152 87);
-  --chart-3: oklch(0.68 0.13 200);
-  --chart-4: oklch(0.72 0.16 320);
-  --chart-5: oklch(0.66 0.2 25);
+  --sidebar: oklch(0.195 0.018 250);
+  --sidebar-foreground: oklch(0.9 0.012 250);
+  --sidebar-primary: oklch(0.83 0.104 220);
+  --sidebar-primary-foreground: oklch(0.18 0.02 250);
+  --sidebar-accent: oklch(0.262 0.021 250);
+  --sidebar-accent-foreground: oklch(0.93 0.011 250);
+  --sidebar-border: oklch(0.295 0.022 250);
+  --sidebar-ring: oklch(0.83 0.104 220);
 
-  --sidebar: oklch(0.19 0.024 168);
-  --sidebar-foreground: oklch(0.94 0.01 150);
-  --sidebar-primary: oklch(0.755 0.174 156);
-  --sidebar-primary-foreground: oklch(0.17 0.03 165);
-  --sidebar-accent: oklch(0.27 0.032 168);
-  --sidebar-accent-foreground: oklch(0.965 0.008 150);
-  --sidebar-border: oklch(0.31 0.032 168);
-  --sidebar-ring: oklch(0.755 0.174 156);
-
-  --gradient-pitch: linear-gradient(
-    135deg,
-    color-mix(in oklab, var(--primary) 22%, transparent),
-    transparent 55%,
-    color-mix(in oklab, var(--gold) 16%, transparent)
-  );
-  --gradient-value: linear-gradient(120deg, var(--primary), var(--gold));
-  --shadow-glow: 0 0 0 1px color-mix(in oklab, var(--primary) 22%, transparent),
-    0 24px 60px -24px color-mix(in oklab, var(--primary) 45%, transparent);
-  --shadow-panel: 0 30px 70px -40px oklch(0 0 0 / 0.9);
+  --shadow-panel: 0 20px 44px -32px oklch(0 0 0 / 0.85);
 }
 
 .dark {
@@ -144,6 +139,7 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    font-size: 0.875rem;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -152,7 +148,7 @@
   h3,
   h4 {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.015em;
   }
 }
 
@@ -163,27 +159,14 @@
   box-shadow: var(--shadow-panel);
 }
 
-@utility text-gradient-value {
-  background-image: var(--gradient-value);
-  background-clip: text;
-  color: transparent;
+@utility label-xs {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
 }
 
-@utility bg-gradient-value {
-  background-image: var(--gradient-value);
-}
-
-@utility bg-gradient-pitch {
-  background-image: var(--gradient-pitch);
-}
-
-@utility shadow-glow {
-  box-shadow: var(--shadow-glow);
-}
-
-@utility grid-lines {
-  background-image:
-    linear-gradient(to right, color-mix(in oklab, var(--border) 60%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklab, var(--border) 60%, transparent) 1px, transparent 1px);
-  background-size: 56px 56px;
+@utility num {
+  font-variant-numeric: tabular-nums;
 }
