@@ -40,7 +40,7 @@ function MarketGrader({
 }: {
   predictionId: string;
   market: Market;
-  saved?: Saved;
+  saved?: Saved | undefined;
 }) {
   const [value, setValue] = useState(saved?.actual_result ?? "");
   const queryClient = useQueryClient();
