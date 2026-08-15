@@ -38,6 +38,47 @@ export type Database = {
         }
         Relationships: []
       }
+      market_results: {
+        Row: {
+          actual_result: string | null
+          created_at: string
+          id: string
+          market: string
+          pick: string
+          prediction_id: string
+          updated_at: string
+          was_correct: boolean | null
+        }
+        Insert: {
+          actual_result?: string | null
+          created_at?: string
+          id?: string
+          market: string
+          pick: string
+          prediction_id: string
+          updated_at?: string
+          was_correct?: boolean | null
+        }
+        Update: {
+          actual_result?: string | null
+          created_at?: string
+          id?: string
+          market?: string
+          pick?: string
+          prediction_id?: string
+          updated_at?: string
+          was_correct?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_results_prediction_id_fkey"
+            columns: ["prediction_id"]
+            isOneToOne: false
+            referencedRelation: "predictions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       predictions: {
         Row: {
           actual_result: string | null
