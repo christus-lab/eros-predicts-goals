@@ -6,10 +6,15 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+// Outside Lovable's managed build (e.g. Render), NITRO_PRESET selects the deploy
+// target: `node-server` produces a plain Node server (dist/server/index.mjs).
+const preset = process.env["NITRO_PRESET"];
+
 export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  ...(preset ? { nitro: { preset } } : {}),
 });
