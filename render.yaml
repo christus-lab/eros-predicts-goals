@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: eros-v1
+    runtime: node
+    plan: starter
+    region: frankfurt
+    branch: main
+    autoDeploy: true
+    buildCommand: npm install && npm run build:render
+    startCommand: npm run start:render
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: 22.11.0
+      - key: NITRO_PRESET
+        value: node-server
+      - key: NODE_ENV
+        value: production
+      # --- Backend (server-side, jamais exposé au client) ---
+      - key: SUPABASE_URL
+        value: https://cqdlwbpvtjzbzqiueehf.supabase.co
+      - key: SUPABASE_PUBLISHABLE_KEY
+        value: sb_publishable_y88QwXSJwXWIw6NBiPuehw_4RgzkCjT
+      - key: SUPABASE_PROJECT_ID
+        value: cqdlwbpvtjzbzqiueehf
+      # Clé service role : à coller dans le dashboard Render (valeur secrète)
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # Clé du moteur IA (AI Gateway) : à coller dans le dashboard Render
+      - key: LOVABLE_API_KEY
+        sync: false
+      # --- Frontend (injecté au build, public) ---
+      - key: VITE_SUPABASE_URL
+        value: https://cqdlwbpvtjzbzqiueehf.supabase.co
+      - key: VITE_SUPABASE_PUBLISHABLE_KEY
+        value: sb_publishable_y88QwXSJwXWIw6NBiPuehw_4RgzkCjT
+      - key: VITE_SUPABASE_PROJECT_ID
+        value: cqdlwbpvtjzbzqiueehf
