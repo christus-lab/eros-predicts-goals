@@ -67,11 +67,10 @@ function extractJson(text: string): unknown {
   }
 }
 
-const ANTHROPIC_MODEL = "claude-sonnet-4-5";
-const ANTHROPIC_VERSION = "2023-06-01";
+const GEMINI_MODEL = "gemini-3.6-flash";
 
-function getAnthropicKey(): string {
-  const apiKey = process.env["ANTHROPIC_API_KEY"] || process.env["LOVABLE_API_KEY"];
+function getGeminiKey(): string {
+  const apiKey = process.env["GEMINI_API_KEY"] || process.env["LOVABLE_API_KEY"];
   if (!apiKey) throw new Error("Cle IA manquante");
   return apiKey;
 }
@@ -86,7 +85,7 @@ export const predictMatch = createServerFn({ method: "POST" })
     }) => input,
   )
   .handler(async ({ data }) => {
-    const apiKey = getAnthropicKey();
+    const apiKey = getGeminiKey();
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -134,27 +133,23 @@ ${memory}
 
 Analyse ce match en profondeur et rends le JSON demande.`;
 
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: SYSTEM }] },
+          contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        }),
       },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 8000,
-        stream: true,
-        system: SYSTEM,
-        messages: [{ role: "user", content: userPrompt }],
-      }),
-    });
+    );
 
     if (!res.ok || !res.body) {
       const detail = await res.text().catch(() => "");
       if (res.status === 429) throw new Error("Limite de requetes atteinte, reessaie dans un instant.");
       if (res.status === 401 || res.status === 403)
-        throw new Error("Cle IA Anthropic invalide ou refusee.");
+        throw new Error("Cle IA Gemini invalide ou refusee.");
       throw new Error(`Erreur moteur IA (${res.status}) ${detail.slice(0, 200)}`);
     }
 
@@ -175,13 +170,8 @@ Analyse ce match en profondeur et rends le JSON demande.`;
         if (!payload) continue;
         try {
           const parsed = JSON.parse(payload);
-          if (
-            parsed?.type === "content_block_delta" &&
-            parsed?.delta?.type === "text_delta" &&
-            typeof parsed.delta.text === "string"
-          ) {
-            content += parsed.delta.text;
-          }
+          const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (typeof text === "string") content += text;
         } catch {
           /* fragment SSE incomplet */
         }
@@ -218,6 +208,25 @@ export const listPredictions = createServerFn({ method: "GET" }).handler(async (
   return data ?? [];
 });
 
+async function callGeminiOnce(apiKey: string, system: string, prompt: string): Promise<string> {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: system }] },
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      }),
+    },
+  );
+  if (!res.ok) return "";
+  const json = (await res.json()) as {
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
+  };
+  return json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+}
+
 export const submitOutcome = createServerFn({ method: "POST" })
   .inputValidator(
     (input: { id: string; actualResult: string; wasCorrect: boolean; feedback?: string }) => input,
@@ -225,7 +234,7 @@ export const submitOutcome = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     let apiKey: string | null = null;
     try {
-      apiKey = getAnthropicKey();
+      apiKey = getGeminiKey();
     } catch {
       apiKey = null;
     }
@@ -249,37 +258,18 @@ export const submitOutcome = createServerFn({ method: "POST" })
     // Le bot transforme le retour en lecon reutilisable (auto-apprentissage).
     if (apiKey && row) {
       try {
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": ANTHROPIC_VERSION,
-          },
-          body: JSON.stringify({
-            model: ANTHROPIC_MODEL,
-            max_tokens: 1000,
-            system:
-              'Tu es le module d apprentissage d Eros-V1. A partir d une prediction et de son resultat reel, produis UNE lecon actionnable pour ameliorer les futures predictions et proteger le bankroll. Reponds en JSON strict: {"topic": string court, "lesson": string (1-3 phrases, francais), "weight": number 1-5}.',
-            messages: [
-              {
-                role: "user",
-                content: `Competition: ${row.competition}\nMatch: ${row.home_team} vs ${row.away_team}\nDonnees: ${String(row.raw_input).slice(0, 3000)}\nPrediction: ${JSON.stringify(row.analysis).slice(0, 4000)}\nResultat reel: ${data.actualResult}\nPronostic ${data.wasCorrect ? "reussi" : "rate"}\nCommentaire: ${data.feedback ?? "-"}`,
-              },
-            ],
-          }),
-        });
-        if (res.ok) {
-          const json = (await res.json()) as { content?: { type?: string; text?: string }[] };
-          const text = json.content?.find((c) => c.type === "text")?.text ?? "";
-          const lesson = extractJson(text) as { topic: string; lesson: string; weight: number };
-          if (lesson?.lesson) {
-            await supabaseAdmin.from("learning_notes").insert({
-              topic: String(lesson.topic ?? "general").slice(0, 80),
-              lesson: String(lesson.lesson).slice(0, 800),
-              weight: Math.min(5, Math.max(1, Math.round(Number(lesson.weight) || 1))),
-            });
-          }
+        const text = await callGeminiOnce(
+          apiKey,
+          'Tu es le module d apprentissage d Eros-V1. A partir d une prediction et de son resultat reel, produis UNE lecon actionnable pour ameliorer les futures predictions et proteger le bankroll. Reponds en JSON strict: {"topic": string court, "lesson": string (1-3 phrases, francais), "weight": number 1-5}.',
+          `Competition: ${row.competition}\nMatch: ${row.home_team} vs ${row.away_team}\nDonnees: ${String(row.raw_input).slice(0, 3000)}\nPrediction: ${JSON.stringify(row.analysis).slice(0, 4000)}\nResultat reel: ${data.actualResult}\nPronostic ${data.wasCorrect ? "reussi" : "rate"}\nCommentaire: ${data.feedback ?? "-"}`,
+        );
+        const lesson = extractJson(text) as { topic: string; lesson: string; weight: number };
+        if (lesson?.lesson) {
+          await supabaseAdmin.from("learning_notes").insert({
+            topic: String(lesson.topic ?? "general").slice(0, 80),
+            lesson: String(lesson.lesson).slice(0, 800),
+            weight: Math.min(5, Math.max(1, Math.round(Number(lesson.weight) || 1))),
+          });
         }
       } catch {
         /* l apprentissage ne doit jamais bloquer l enregistrement du resultat */
@@ -344,7 +334,7 @@ export const saveMarketResult = createServerFn({ method: "POST" })
 
     let apiKey: string | null = null;
     try {
-      apiKey = getAnthropicKey();
+      apiKey = getGeminiKey();
     } catch {
       apiKey = null;
     }
@@ -356,41 +346,22 @@ export const saveMarketResult = createServerFn({ method: "POST" })
 
     if (apiKey && row) {
       try {
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": ANTHROPIC_VERSION,
-          },
-          body: JSON.stringify({
-            model: ANTHROPIC_MODEL,
-            max_tokens: 500,
-            system:
-              'Tu es le module d apprentissage d Eros-V1. A partir d un marche predit et de son resultat reel, produis UNE lecon actionnable pour mieux calibrer ce type de marche et proteger le bankroll. Reponds en JSON strict: {"topic": string court, "lesson": string (1-2 phrases, francais), "weight": number 1-5}.',
-            messages: [
-              {
-                role: "user",
-                content: `Competition: ${row.competition}\nMatch: ${row.home_team} vs ${row.away_team}\nMarche: ${data.market}\nPronostic: ${data.pick}\nResultat reel: ${data.actualResult || "non precise"}\nPronostic ${data.wasCorrect ? "reussi" : "rate"}`,
-              },
-            ],
-          }),
-        });
-        if (res.ok) {
-          const json = (await res.json()) as { content?: { type?: string; text?: string }[] };
-          const text = json.content?.find((c) => c.type === "text")?.text ?? "";
-          const lesson = extractJson(text) as {
-            topic: string;
-            lesson: string;
-            weight: number;
-          };
-          if (lesson?.lesson) {
-            await supabaseAdmin.from("learning_notes").insert({
-              topic: String(lesson.topic ?? "marche").slice(0, 80),
-              lesson: String(lesson.lesson).slice(0, 800),
-              weight: Math.min(5, Math.max(1, Math.round(Number(lesson.weight) || 1))),
-            });
-          }
+        const text = await callGeminiOnce(
+          apiKey,
+          'Tu es le module d apprentissage d Eros-V1. A partir d un marche predit et de son resultat reel, produis UNE lecon actionnable pour mieux calibrer ce type de marche et proteger le bankroll. Reponds en JSON strict: {"topic": string court, "lesson": string (1-2 phrases, francais), "weight": number 1-5}.',
+          `Competition: ${row.competition}\nMatch: ${row.home_team} vs ${row.away_team}\nMarche: ${data.market}\nPronostic: ${data.pick}\nResultat reel: ${data.actualResult || "non precise"}\nPronostic ${data.wasCorrect ? "reussi" : "rate"}`,
+        );
+        const lesson = extractJson(text) as {
+          topic: string;
+          lesson: string;
+          weight: number;
+        };
+        if (lesson?.lesson) {
+          await supabaseAdmin.from("learning_notes").insert({
+            topic: String(lesson.topic ?? "marche").slice(0, 80),
+            lesson: String(lesson.lesson).slice(0, 800),
+            weight: Math.min(5, Math.max(1, Math.round(Number(lesson.weight) || 1))),
+          });
         }
       } catch {
         /* l apprentissage ne bloque jamais l enregistrement */
@@ -399,3 +370,4 @@ export const saveMarketResult = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+                                                              
