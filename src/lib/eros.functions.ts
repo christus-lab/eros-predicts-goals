@@ -67,6 +67,15 @@ function extractJson(text: string): unknown {
   }
 }
 
+const ANTHROPIC_MODEL = "claude-sonnet-4-5";
+const ANTHROPIC_VERSION = "2023-06-01";
+
+function getAnthropicKey(): string {
+  const apiKey = process.env["ANTHROPIC_API_KEY"] || process.env["LOVABLE_API_KEY"];
+  if (!apiKey) throw new Error("Cle IA manquante");
+  return apiKey;
+}
+
 export const predictMatch = createServerFn({ method: "POST" })
   .inputValidator(
     (input: {
@@ -77,8 +86,7 @@ export const predictMatch = createServerFn({ method: "POST" })
     }) => input,
   )
   .handler(async ({ data }) => {
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) throw new Error("Cle IA manquante");
+    const apiKey = getAnthropicKey();
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -126,27 +134,27 @@ ${memory}
 
 Analyse ce match en profondeur et rends le JSON demande.`;
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Lovable-API-Key": apiKey,
-        "X-Lovable-AIG-SDK": "fetch",
+        "x-api-key": apiKey,
+        "anthropic-version": ANTHROPIC_VERSION,
       },
       body: JSON.stringify({
-        model: "google/gemini-3.6-flash",
+        model: ANTHROPIC_MODEL,
+        max_tokens: 8000,
         stream: true,
-        messages: [
-          { role: "system", content: SYSTEM },
-          { role: "user", content: userPrompt },
-        ],
+        system: SYSTEM,
+        messages: [{ role: "user", content: userPrompt }],
       }),
     });
 
     if (!res.ok || !res.body) {
       const detail = await res.text().catch(() => "");
       if (res.status === 429) throw new Error("Limite de requetes atteinte, reessaie dans un instant.");
-      if (res.status === 402) throw new Error("Credits IA epuises. Recharge ton espace Lovable AI.");
+      if (res.status === 401 || res.status === 403)
+        throw new Error("Cle IA Anthropic invalide ou refusee.");
       throw new Error(`Erreur moteur IA (${res.status}) ${detail.slice(0, 200)}`);
     }
 
@@ -164,11 +172,16 @@ Analyse ce match en profondeur et rends le JSON demande.`;
         const trimmed = line.trim();
         if (!trimmed.startsWith("data:")) continue;
         const payload = trimmed.slice(5).trim();
-        if (!payload || payload === "[DONE]") continue;
+        if (!payload) continue;
         try {
           const parsed = JSON.parse(payload);
-          const delta = parsed?.choices?.[0]?.delta?.content;
-          if (typeof delta === "string") content += delta;
+          if (
+            parsed?.type === "content_block_delta" &&
+            parsed?.delta?.type === "text_delta" &&
+            typeof parsed.delta.text === "string"
+          ) {
+            content += parsed.delta.text;
+          }
         } catch {
           /* fragment SSE incomplet */
         }
@@ -210,7 +223,12 @@ export const submitOutcome = createServerFn({ method: "POST" })
     (input: { id: string; actualResult: string; wasCorrect: boolean; feedback?: string }) => input,
   )
   .handler(async ({ data }) => {
-    const apiKey = process.env["LOVABLE_API_KEY"];
+    let apiKey: string | null = null;
+    try {
+      apiKey = getAnthropicKey();
+    } catch {
+      apiKey = null;
+    }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: row } = await supabaseAdmin
@@ -231,21 +249,19 @@ export const submitOutcome = createServerFn({ method: "POST" })
     // Le bot transforme le retour en lecon reutilisable (auto-apprentissage).
     if (apiKey && row) {
       try {
-        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Lovable-API-Key": apiKey,
-            "X-Lovable-AIG-SDK": "fetch",
+            "x-api-key": apiKey,
+            "anthropic-version": ANTHROPIC_VERSION,
           },
           body: JSON.stringify({
-            model: "google/gemini-3.6-flash",
+            model: ANTHROPIC_MODEL,
+            max_tokens: 1000,
+            system:
+              'Tu es le module d apprentissage d Eros-V1. A partir d une prediction et de son resultat reel, produis UNE lecon actionnable pour ameliorer les futures predictions et proteger le bankroll. Reponds en JSON strict: {"topic": string court, "lesson": string (1-3 phrases, francais), "weight": number 1-5}.',
             messages: [
-              {
-                role: "system",
-                content:
-                  'Tu es le module d apprentissage d Eros-V1. A partir d une prediction et de son resultat reel, produis UNE lecon actionnable pour ameliorer les futures predictions et proteger le bankroll. Reponds en JSON strict: {"topic": string court, "lesson": string (1-3 phrases, francais), "weight": number 1-5}.',
-              },
               {
                 role: "user",
                 content: `Competition: ${row.competition}\nMatch: ${row.home_team} vs ${row.away_team}\nDonnees: ${String(row.raw_input).slice(0, 3000)}\nPrediction: ${JSON.stringify(row.analysis).slice(0, 4000)}\nResultat reel: ${data.actualResult}\nPronostic ${data.wasCorrect ? "reussi" : "rate"}\nCommentaire: ${data.feedback ?? "-"}`,
@@ -254,10 +270,8 @@ export const submitOutcome = createServerFn({ method: "POST" })
           }),
         });
         if (res.ok) {
-          const json = (await res.json()) as {
-            choices?: { message?: { content?: string } }[];
-          };
-          const text = json.choices?.[0]?.message?.content ?? "";
+          const json = (await res.json()) as { content?: { type?: string; text?: string }[] };
+          const text = json.content?.find((c) => c.type === "text")?.text ?? "";
           const lesson = extractJson(text) as { topic: string; lesson: string; weight: number };
           if (lesson?.lesson) {
             await supabaseAdmin.from("learning_notes").insert({
@@ -328,7 +342,12 @@ export const saveMarketResult = createServerFn({ method: "POST" })
         { onConflict: "prediction_id,market" },
       );
 
-    const apiKey = process.env["LOVABLE_API_KEY"];
+    let apiKey: string | null = null;
+    try {
+      apiKey = getAnthropicKey();
+    } catch {
+      apiKey = null;
+    }
     const { data: row } = await supabaseAdmin
       .from("predictions")
       .select("competition, home_team, away_team")
@@ -337,21 +356,19 @@ export const saveMarketResult = createServerFn({ method: "POST" })
 
     if (apiKey && row) {
       try {
-        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Lovable-API-Key": apiKey,
-            "X-Lovable-AIG-SDK": "fetch",
+            "x-api-key": apiKey,
+            "anthropic-version": ANTHROPIC_VERSION,
           },
           body: JSON.stringify({
-            model: "google/gemini-3.6-flash",
+            model: ANTHROPIC_MODEL,
+            max_tokens: 500,
+            system:
+              'Tu es le module d apprentissage d Eros-V1. A partir d un marche predit et de son resultat reel, produis UNE lecon actionnable pour mieux calibrer ce type de marche et proteger le bankroll. Reponds en JSON strict: {"topic": string court, "lesson": string (1-2 phrases, francais), "weight": number 1-5}.',
             messages: [
-              {
-                role: "system",
-                content:
-                  'Tu es le module d apprentissage d Eros-V1. A partir d un marche predit et de son resultat reel, produis UNE lecon actionnable pour mieux calibrer ce type de marche et proteger le bankroll. Reponds en JSON strict: {"topic": string court, "lesson": string (1-2 phrases, francais), "weight": number 1-5}.',
-              },
               {
                 role: "user",
                 content: `Competition: ${row.competition}\nMatch: ${row.home_team} vs ${row.away_team}\nMarche: ${data.market}\nPronostic: ${data.pick}\nResultat reel: ${data.actualResult || "non precise"}\nPronostic ${data.wasCorrect ? "reussi" : "rate"}`,
@@ -360,8 +377,9 @@ export const saveMarketResult = createServerFn({ method: "POST" })
           }),
         });
         if (res.ok) {
-          const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-          const lesson = extractJson(json.choices?.[0]?.message?.content ?? "") as {
+          const json = (await res.json()) as { content?: { type?: string; text?: string }[] };
+          const text = json.content?.find((c) => c.type === "text")?.text ?? "";
+          const lesson = extractJson(text) as {
             topic: string;
             lesson: string;
             weight: number;
