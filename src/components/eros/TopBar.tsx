@@ -3,8 +3,10 @@ import logo from "@/assets/eros-logo.png";
 
 const links = [
   { to: "/", label: "Analyse" },
+  { to: "/live", label: "Live" },
   { to: "/historique", label: "Historique" },
 ] as const;
+
 
 export function TopBar() {
   return (
